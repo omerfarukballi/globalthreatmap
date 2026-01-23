@@ -2,6 +2,10 @@
 
 A real-time global situational awareness platform that plots security events, geopolitical developments, and threat indicators on an interactive map. Think of it as an OSINT (Open Source Intelligence) command center.
 
+![](https://4ealzrotsszllxtz.public.blob.vercel-storage.com/bang!)
+
+![](https://4ealzrotsszllxtz.public.blob.vercel-storage.com/firstphotoshoot)
+
 ## Features
 
 ### Core Features
