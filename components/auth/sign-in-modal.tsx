@@ -28,7 +28,7 @@ function ValyuLogoWithText() {
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M12 4L4 20h16L12 4z" />
+        <path d="M12 20L4 4h16L12 20z" />
       </svg>
       <span className="font-semibold tracking-wide">VALYU</span>
     </div>

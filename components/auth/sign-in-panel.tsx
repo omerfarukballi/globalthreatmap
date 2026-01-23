@@ -25,7 +25,7 @@ function ValyuLogo({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M12 5L5 19h14L12 5z" />
+        <path d="M12 19L5 5h14L12 19z" />
       </svg>
     </div>
   );

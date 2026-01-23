@@ -15,7 +15,14 @@ export function EventPopup({ event }: EventPopupProps) {
     <div className="min-w-[250px] max-w-[300px] p-2">
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground line-clamp-2">
-          {event.title}
+          <a
+            href={event.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-white hover:underline"
+          >
+            {event.title}
+          </a>
         </h3>
         <Badge
           variant={event.threatLevel}

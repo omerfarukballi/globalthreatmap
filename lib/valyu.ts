@@ -51,7 +51,7 @@ export async function searchEvents(
   try {
     const valyu = getValyuClient();
     const response = await valyu.search(query, {
-      searchType: "all",
+      searchType: "news",
       maxNumResults: options?.maxResults || 20,
     });
 
