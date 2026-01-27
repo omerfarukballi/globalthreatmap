@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEventsStore } from "@/stores/events-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCreditErrorStore, CREDIT_ERROR_MESSAGE, isCreditError } from "@/stores/credit-error-store";
 import type { ThreatEvent } from "@/types";
 
 const APP_MODE = process.env.NEXT_PUBLIC_APP_MODE || "self-hosted";
@@ -59,6 +60,13 @@ export function useEvents(options: UseEventsOptions = {}) {
       });
 
       const data = await response.json();
+
+      // Handle credit errors
+      if (response.status === 402 || isCreditError(response.status, data.error || data.message)) {
+        useCreditErrorStore.getState().setCreditError(CREDIT_ERROR_MESSAGE);
+        setError("Insufficient credits");
+        return;
+      }
 
       // Handle auth errors - don't immediately sign out, just prompt re-auth
       if (response.status === 401 || data.requiresReauth) {

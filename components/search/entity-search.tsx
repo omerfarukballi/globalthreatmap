@@ -31,6 +31,7 @@ import {
 import { Favicon } from "@/components/ui/favicon";
 import { useMapStore } from "@/stores/map-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCreditErrorStore, CREDIT_ERROR_MESSAGE, isCreditError } from "@/stores/credit-error-store";
 import { Markdown } from "@/components/ui/markdown";
 import { SignInModal } from "@/components/auth/sign-in-modal";
 import type { EntityProfile } from "@/types";
@@ -174,8 +175,14 @@ export function EntitySearch() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic: query, accessToken }),
     })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json();
+        // Check for credit errors
+        if (res.status === 402 || isCreditError(res.status, data.error || data.message)) {
+          useCreditErrorStore.getState().setCreditError(CREDIT_ERROR_MESSAGE);
+          setDeepResearchError("Insufficient credits");
+          return;
+        }
         if (data.error) {
           setDeepResearchError(data.error);
         } else if (data.taskId) {

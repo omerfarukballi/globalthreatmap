@@ -191,6 +191,14 @@ export async function GET(request: Request) {
       );
     }
 
+    const requiresCredits = searchResultsArrays.some((r) => r.requiresCredits);
+    if (requiresCredits) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
+
     const allResults = searchResultsArrays.flatMap((r) => r.results);
     const sortedEvents = await processSearchResults(allResults);
 
@@ -240,6 +248,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "auth_error", message: "Session expired. Please sign in again.", requiresReauth: true },
         { status: 401 }
+      );
+    }
+
+    const requiresCredits = searchResultsArrays.some((r) => r.requiresCredits);
+    if (requiresCredits) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
       );
     }
 

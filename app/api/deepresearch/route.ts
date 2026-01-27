@@ -24,7 +24,7 @@ function getValyuClient(): Valyu {
 async function createTaskViaProxy(
   topic: string,
   accessToken: string
-): Promise<{ taskId?: string; error?: string }> {
+): Promise<{ taskId?: string; error?: string; requiresCredits?: boolean }> {
   try {
     const response = await fetch(OAUTH_PROXY_URL, {
       method: "POST",
@@ -77,6 +77,17 @@ async function createTaskViaProxy(
       if (response.status === 401 || response.status === 403) {
         return { error: "Session expired. Please sign in again." };
       }
+      if (response.status === 402) {
+        return { error: "Insufficient credits", requiresCredits: true };
+      }
+      // Try to parse error for credit-related messages
+      try {
+        const errorData = await response.json();
+        const errorMsg = (errorData.error || errorData.message || "").toLowerCase();
+        if (errorMsg.includes("insufficient credits") || errorMsg.includes("credit limit") || errorMsg.includes("no credits")) {
+          return { error: "Insufficient credits", requiresCredits: true };
+        }
+      } catch {}
       return { error: `API call failed: ${response.status}` };
     }
 
@@ -114,6 +125,12 @@ export async function POST(request: Request) {
     if (!selfHosted && accessToken) {
       const result = await createTaskViaProxy(topic, accessToken);
       if (result.error) {
+        if (result.requiresCredits) {
+          return NextResponse.json(
+            { error: "Insufficient credits", message: "Please top up credits" },
+            { status: 402 }
+          );
+        }
         return NextResponse.json({ error: result.error }, { status: 500 });
       }
       return NextResponse.json({ taskId: result.taskId, status: "queued" });
@@ -160,6 +177,13 @@ export async function POST(request: Request) {
 
     if (!task.success || !task.deepresearch_id) {
       console.error("Failed to create deep research task:", task.error);
+      const errorMsg = (task.error || "").toLowerCase();
+      if (errorMsg.includes("insufficient credits") || errorMsg.includes("credit limit") || errorMsg.includes("no credits") || errorMsg.includes("402")) {
+        return NextResponse.json(
+          { error: "Insufficient credits", message: "Please top up credits" },
+          { status: 402 }
+        );
+      }
       return NextResponse.json(
         { error: task.error || "Failed to create research task" },
         { status: 500 }
@@ -172,6 +196,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error creating deep research task:", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (errorMsg.toLowerCase().includes("insufficient credits") || errorMsg.includes("402")) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to create research task" },
       { status: 500 }

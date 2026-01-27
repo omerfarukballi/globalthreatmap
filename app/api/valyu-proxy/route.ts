@@ -60,6 +60,23 @@ export async function POST(request: Request) {
         );
       }
 
+      // Check for credit errors
+      if (response.status === 402) {
+        return NextResponse.json(
+          { error: "Insufficient credits", message: "Please top up credits" },
+          { status: 402 }
+        );
+      }
+
+      // Also check error message for credit-related errors
+      const errorMsg = (errorData.error || errorData.message || "").toLowerCase();
+      if (errorMsg.includes("insufficient credits") || errorMsg.includes("credit limit") || errorMsg.includes("no credits")) {
+        return NextResponse.json(
+          { error: "Insufficient credits", message: "Please top up credits" },
+          { status: 402 }
+        );
+      }
+
       return NextResponse.json(
         { error: "proxy_error", message: errorData.message || "Request failed", details: errorData },
         { status: response.status }

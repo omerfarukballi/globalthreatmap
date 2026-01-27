@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEntityResearch, deepResearch, searchEntityLocations, streamEntityResearch } from "@/lib/valyu";
+import { getEntityResearch, deepResearch, searchEntityLocations, streamEntityResearch, CreditError } from "@/lib/valyu";
 import { isSelfHostedMode } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +91,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ entity: profile });
   } catch (error) {
     console.error("Error researching entity:", error);
+    if (error instanceof CreditError) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to research entity" },
       { status: 500 }
@@ -174,6 +180,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ entity: profile, deliverables, pdfUrl });
   } catch (error) {
     console.error("Error researching entity:", error);
+    if (error instanceof CreditError) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to research entity" },
       { status: 500 }

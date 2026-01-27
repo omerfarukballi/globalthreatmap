@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCountryConflicts, streamCountryConflicts } from "@/lib/valyu";
+import { getCountryConflicts, streamCountryConflicts, CreditError } from "@/lib/valyu";
 import { isSelfHostedMode } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +76,19 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Error fetching country conflicts:", error);
+    if (error instanceof CreditError) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (errorMsg.toLowerCase().includes("insufficient credits") || errorMsg.includes("402")) {
+      return NextResponse.json(
+        { error: "Insufficient credits", message: "Please top up credits" },
+        { status: 402 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to fetch country conflicts" },
       { status: 500 }

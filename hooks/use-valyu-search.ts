@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { EntityProfile } from "@/types";
+import { useCreditErrorStore, CREDIT_ERROR_MESSAGE, isCreditError } from "@/stores/credit-error-store";
 
 export interface Deliverables {
   csv?: { url: string; title: string };
@@ -17,6 +18,26 @@ export interface EntitySearchResult {
 interface SearchState {
   isLoading: boolean;
   error: string | null;
+}
+
+// Helper to check response for credit errors and trigger the store
+async function checkCreditError(response: Response): Promise<boolean> {
+  if (response.status === 402) {
+    useCreditErrorStore.getState().setCreditError(CREDIT_ERROR_MESSAGE);
+    return true;
+  }
+  if (!response.ok) {
+    try {
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.json();
+      const errorMessage = data.error || data.message || "";
+      if (isCreditError(response.status, errorMessage)) {
+        useCreditErrorStore.getState().setCreditError(CREDIT_ERROR_MESSAGE);
+        return true;
+      }
+    } catch {}
+  }
+  return false;
 }
 
 export function useValyuSearch() {
@@ -38,6 +59,12 @@ export function useValyuSearch() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, includeDeepResearch }),
         });
+
+        // Check for credit errors
+        if (await checkCreditError(response)) {
+          setState({ isLoading: false, error: "Insufficient credits" });
+          return null;
+        }
 
         if (!response.ok) {
           throw new Error("Entity search failed");
@@ -73,6 +100,12 @@ export function useValyuSearch() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic, type }),
         });
+
+        // Check for credit errors
+        if (await checkCreditError(response)) {
+          setState({ isLoading: false, error: "Insufficient credits" });
+          return null;
+        }
 
         if (!response.ok) {
           throw new Error("Report generation failed");
