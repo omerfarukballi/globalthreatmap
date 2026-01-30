@@ -22,6 +22,26 @@ interface ProxyResult {
   data?: any;
   error?: string;
   requiresReauth?: boolean;
+  requiresCredits?: boolean;
+}
+
+// Helper to check if an error message indicates a credit problem
+function isCreditErrorMessage(message: string): boolean {
+  const lowerMsg = message.toLowerCase();
+  return (
+    lowerMsg.includes("insufficient credits") ||
+    lowerMsg.includes("credit limit exceeded") ||
+    lowerMsg.includes("no credits available") ||
+    message.includes("402")
+  );
+}
+
+// Custom error class for credit errors
+export class CreditError extends Error {
+  constructor(message = "Insufficient credits") {
+    super(message);
+    this.name = "CreditError";
+  }
 }
 
 async function callViaProxy(
@@ -43,7 +63,20 @@ async function callViaProxy(
       if (response.status === 401 || response.status === 403) {
         return { success: false, error: "Session expired", requiresReauth: true };
       }
-      return { success: false, error: `API call failed: ${response.status}` };
+      if (response.status === 402) {
+        return { success: false, error: "Insufficient credits", requiresCredits: true };
+      }
+      // Try to parse error message for credit-related errors
+      try {
+        const errorData = await response.json();
+        const errorMsg = errorData.error || errorData.message || "";
+        if (isCreditErrorMessage(errorMsg)) {
+          return { success: false, error: errorMsg, requiresCredits: true };
+        }
+        return { success: false, error: errorMsg || `API call failed: ${response.status}` };
+      } catch {
+        return { success: false, error: `API call failed: ${response.status}` };
+      }
     }
 
     const data = await response.json();
@@ -96,6 +129,7 @@ export async function searchEvents(
     source?: string;
   }>;
   requiresReauth?: boolean;
+  requiresCredits?: boolean;
 }> {
   const searchBody = {
     query,
@@ -109,6 +143,9 @@ export async function searchEvents(
     if (!proxyResult.success) {
       if (proxyResult.requiresReauth) {
         return { results: [], requiresReauth: true };
+      }
+      if (proxyResult.requiresCredits) {
+        return { results: [], requiresCredits: true };
       }
       throw new Error(proxyResult.error || "Search failed");
     }
@@ -157,6 +194,11 @@ export async function searchEvents(
     };
   } catch (error) {
     console.error("Search error:", error);
+    // Check if it's a credit error
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (isCreditErrorMessage(errorMsg)) {
+      return { results: [], requiresCredits: true };
+    }
     throw error;
   }
 }
@@ -266,6 +308,9 @@ export async function getEntityResearch(entityName: string, options?: EntityOpti
       if (proxyResult.requiresReauth) {
         return null;
       }
+      if (proxyResult.requiresCredits) {
+        throw new CreditError(proxyResult.error);
+      }
       throw new Error(proxyResult.error || "Entity research failed");
     }
 
@@ -326,6 +371,11 @@ export async function getEntityResearch(entityName: string, options?: EntityOpti
     };
   } catch (error) {
     console.error("Entity research error:", error);
+    // Check if it's a credit error
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (isCreditErrorMessage(errorMsg)) {
+      throw new CreditError(errorMsg);
+    }
     throw error;
   }
 }
@@ -335,6 +385,7 @@ interface EntityStreamChunk {
   content?: string;
   sources?: Array<{ title: string; url: string }>;
   error?: string;
+  requiresCredits?: boolean;
 }
 
 export async function* streamEntityResearch(
@@ -366,6 +417,7 @@ Be thorough but concise. Focus on verified facts from reliable sources.`;
         yield {
           type: "error",
           error: proxyResult.error || "Failed to get entity research",
+          requiresCredits: proxyResult.requiresCredits,
         };
         return;
       }
@@ -385,9 +437,11 @@ Be thorough but concise. Focus on verified facts from reliable sources.`;
       }
       yield { type: "done" };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
       yield {
         type: "error",
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: errorMsg,
+        requiresCredits: isCreditErrorMessage(errorMsg),
       };
     }
     return;
@@ -424,9 +478,11 @@ Be thorough but concise. Focus on verified facts from reliable sources.`;
 
     yield { type: "done" };
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
     yield {
       type: "error",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      error: errorMsg,
+      requiresCredits: isCreditErrorMessage(errorMsg),
     };
   }
 }
